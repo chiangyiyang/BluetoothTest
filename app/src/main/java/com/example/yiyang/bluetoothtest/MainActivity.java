@@ -25,6 +25,8 @@ import android.widget.Toast;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 
@@ -35,7 +37,8 @@ public class MainActivity extends AppCompatActivity {
     private static final int REQUEST_ENABLE_BT_DISCOVERABLE = 1235;
     private static final int BT_MESSAGE_READ = 1236;
     private static final String BT_SDP_SERVICE_NAME = "BluetoothTest";
-    private static final String BT_SDP_UUID = "5cdbe98a-6fdd-11e6-8b77-86f30ca893d3";
+    //    private static final String BT_SDP_UUID = "5cdbe98a-6fdd-11e6-8b77-86f30ca893d3";
+    private static final String BT_SDP_UUID = "00001101-0000-1000-8000-00805F9B34FB";
     private BluetoothAdapter btAdapter;
     private Button btnGetBTA;
     private Button btnEnableBT;
@@ -54,8 +57,10 @@ public class MainActivity extends AppCompatActivity {
     private Button btnListen;
     private TextView tvListen;
     private Set<BluetoothDevice> pairedDevices;
+    private List<BluetoothDevice> discoveredDevices;
     private Button btnSayHello;
     private EditText etSayHello;
+    private Button btnDisconnect;
 
     @Override
     protected void onDestroy() {
@@ -80,10 +85,10 @@ public class MainActivity extends AppCompatActivity {
             }
         } else if (requestCode == REQUEST_ENABLE_BT_DISCOVERABLE) {
 
-            if (resultCode == RESULT_OK) {
-                tvDiscoverable.setText("BT DISCOVERABLE!");
-            } else {
+            if (resultCode == RESULT_CANCELED) {
                 tvDiscoverable.setText("BT UNDISCOVERABLE!");
+            } else {
+                tvDiscoverable.setText("BT DISCOVERABLE!");
             }
         }
     }
@@ -114,29 +119,25 @@ public class MainActivity extends AppCompatActivity {
         filter.addAction(BluetoothDevice.ACTION_FOUND);
         registerReceiver(mReceiver, filter);
 
-
-        acceptThread = new AcceptThread();
-//        acceptThread.start();
-
-
     }
 
     private void setListeners() {
+
         btnDiscoverBT.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 btAdapter.startDiscovery();
                 arrDiscoveredDeviceList.clear();
+                discoveredDevices = new ArrayList<BluetoothDevice>();
+
             }
         });
 
         lvPairedDevices.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
             @Override
             public boolean onItemLongClick(AdapterView<?> adapterView, View view, int i, long l) {
-
                 String data = ((TextView) view).getText().toString();
                 String[] items = data.split("\n");
-
                 BluetoothDevice btDevice = null;
                 for (BluetoothDevice btd :
                         pairedDevices) {
@@ -149,10 +150,34 @@ public class MainActivity extends AppCompatActivity {
                 if (btDevice != null) {
                     ConnectThread connectThread = new ConnectThread(btDevice);
                     connectThread.start();
+                    Toast.makeText(MainActivity.this, "Connect " + btDevice.getName(), Toast.LENGTH_LONG).show();
                 }
 
-
                 return true;
+            }
+        });
+
+        lvDiscoveredDevices.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
+            @Override
+            public boolean onItemLongClick(AdapterView<?> adapterView, View view, int i, long l) {
+                String data = ((TextView) view).getText().toString();
+                String[] items = data.split("\n");
+                BluetoothDevice btDevice = null;
+                for (BluetoothDevice btd :
+                        discoveredDevices) {
+                    if (btd.getAddress().equals(items[1])) {
+                        btDevice = btd;
+                        break;
+                    }
+                }
+
+                if (btDevice != null) {
+                    ConnectThread connectThread = new ConnectThread(btDevice);
+                    connectThread.start();
+                    Toast.makeText(MainActivity.this, "Connect " + btDevice.getName(), Toast.LENGTH_LONG).show();
+                }
+
+                return false;
             }
         });
 
@@ -223,11 +248,13 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 if (btnListen.getText().equals("Listen")) {
+                    acceptThread = new AcceptThread();
                     acceptThread.start();
                     btnListen.setText("Stop Listen");
                     tvListen.setText("Listening");
                 } else {
                     acceptThread.cancel();
+                    acceptThread = null;
                     btnListen.setText("Listen");
                     tvListen.setText("");
                 }
@@ -240,6 +267,13 @@ public class MainActivity extends AppCompatActivity {
             public void onClick(View view) {
                 byte[] data = etSayHello.getText().toString().getBytes();
                 connectedThread.write(data);
+            }
+        });
+
+        btnDisconnect.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                if (connectedThread != null) connectedThread.cancel();
             }
         });
     }
@@ -260,18 +294,20 @@ public class MainActivity extends AppCompatActivity {
         tvListen = (TextView) findViewById(R.id.tvListen);
         btnSayHello = (Button) findViewById(R.id.btnSayHello);
         etSayHello = (EditText) findViewById(R.id.etSayHello);
+        btnDisconnect = (Button) findViewById(R.id.btnDisconnect);
     }
 
     private final BroadcastReceiver mReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             final String action = intent.getAction();
-            // Get the BluetoothDevice object from the Intent
-            BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
-            // Add the name and address to an array adapter to show in a ListView
-            arrDiscoveredDeviceList.add(device.getName() + "\n" + device.getAddress());
 
             if (action.equals(BluetoothDevice.ACTION_FOUND)) {
+                // Get the BluetoothDevice object from the Intent
+                BluetoothDevice device = intent.getParcelableExtra(BluetoothDevice.EXTRA_DEVICE);
+                // Add the name and address to an array adapter to show in a ListView
+                arrDiscoveredDeviceList.add(device.getName() + "\n" + device.getAddress());
+                discoveredDevices.add(device);
 
             } else if (action.equals(BluetoothAdapter.ACTION_STATE_CHANGED)) {
                 final int state = intent.getIntExtra(BluetoothAdapter.EXTRA_STATE,
