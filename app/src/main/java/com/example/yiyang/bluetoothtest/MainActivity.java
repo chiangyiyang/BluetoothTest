@@ -37,7 +37,6 @@ public class MainActivity extends AppCompatActivity {
     private static final int REQUEST_ENABLE_BT_DISCOVERABLE = 1235;
     private static final int BT_MESSAGE_READ = 1236;
     private static final String BT_SDP_SERVICE_NAME = "BluetoothTest";
-    //    private static final String BT_SDP_UUID = "5cdbe98a-6fdd-11e6-8b77-86f30ca893d3";
     private static final String BT_SDP_UUID = "00001101-0000-1000-8000-00805F9B34FB";
     private BluetoothAdapter btAdapter;
     private Button btnGetBTA;
